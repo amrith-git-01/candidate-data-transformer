@@ -63,12 +63,12 @@ can be traced back through the stages that touched it.
 
 ## 3. Source adapters
 
-| Source | Group | Notes |
-|---|---|---|
-| Recruiter CSV | structured | columns: name, email, phone, current_company, title |
-| ATS JSON blob | structured | field names don't match canonical — adapter remaps keys |
-| Recruiter notes (.txt) | unstructured | free text — heuristic extraction (regex/keyword), not NLP |
-| GitHub profile | enrichment only | conditional — only runs if a github link is found in any of the 3 sources above |
+| Source                 | Group           | Notes                                                                           |
+| ---------------------- | --------------- | ------------------------------------------------------------------------------- |
+| Recruiter CSV          | structured      | columns: name, email, phone, current_company, title                             |
+| ATS JSON blob          | structured      | field names don't match canonical — adapter remaps keys                         |
+| Recruiter notes (.txt) | unstructured    | free text — heuristic extraction (regex/keyword), not NLP                       |
+| GitHub profile         | enrichment only | conditional — only runs if a github link is found in any of the 3 sources above |
 
 Every adapter outputs the same intermediate shape, a `RawRecord`:
 
@@ -112,27 +112,34 @@ Applied per-field, source-agnostic:
 - **Locations** → country coerced to ISO-3166 alpha-2 where resolvable, else
   left as given
 
-Normalization happens *before* identity matching and merge, so every record
+Normalization happens _before_ identity matching and merge, so every record
 being compared/merged is already in canonical shape — matching never has to
 deal with inconsistent formats.
 
 ## 6. Identity matching
 
 Decides which `RawRecord`s (possibly from different sources) refer to the
-same candidate. Tiered, exact-match only (no fuzzy/probabilistic matching —
-explicit scope cut, noted below):
+same candidate. Tiered, exact-match only — **email and phone only** (no
+name-based joins across sources):
 
 1. Normalized email match (primary key)
 2. Normalized phone match (fallback if email missing on either side)
-3. Exact normalized full-name match (last-resort fallback, lower confidence)
 
-The matching method used is recorded per candidate (`matched_by:
-"email"|"phone"|"name"`) and feeds into `overall_confidence` — an
-email-based match is trusted more than a name-only match.
+Records that share neither email nor phone remain **separate profiles**,
+even if names match exactly.
 
-**Explicit scope cut:** no fuzzy/probabilistic name matching (e.g. Jaro-Winkler,
-nicknames). Real MDM systems use this for messier data; out of scope here,
-documented as a clear future extension rather than silently skipped.
+Singleton records (one source only) still record `matched_by` as the best
+key available on that record (`"email"`, `"phone"`, or `"name"` when no
+contact keys exist) for confidence weighting — that is labeling only, not
+cross-source matching.
+
+The matching tier used for joined groups is recorded per candidate
+(`matched_by: "email"|"phone"`) and feeds into `overall_confidence` —
+an email-based match is trusted more than a phone-only match.
+
+**Explicit scope cut:** no name-based identity joins and no fuzzy matching
+(e.g. Jaro-Winkler, nicknames). Real MDM systems use these for messier
+data; out of scope here.
 
 ## 7. Merge & survivorship
 
@@ -147,13 +154,13 @@ or `provenance[]`.
 `headline`) — survivorship by source-trust order, decided per field, not
 per record:
 
-| Field | Trust order |
-|---|---|
-| full_name | csv → ats → recruiter_notes |
-| company / title (→ experience) | csv → ats |
-| headline | recruiter_notes (extracted) → github bio (fallback) |
-| education | ats → null |
-| years_experience | ats → recruiter_notes (extracted) → null |
+| Field                          | Trust order                                         |
+| ------------------------------ | --------------------------------------------------- |
+| full_name                      | csv → ats → recruiter_notes                         |
+| company / title (→ experience) | csv → ats                                           |
+| headline                       | recruiter_notes (extracted) → github bio (fallback) |
+| education                      | ats → null                                          |
+| years_experience               | ats → recruiter_notes (extracted) → null            |
 
 If the top-trust source is missing the field, fall through to the next —
 this is fallback, not blind precedence: every source gets a chance, highest
@@ -201,7 +208,7 @@ are a config change, not a code change.
 
 ## 10. Validation
 
-After projection, the output is checked against the *requested* config
+After projection, the output is checked against the _requested_ config
 shape (not the internal canonical schema) — required fields present,
 types match, `on_missing: "error"` fields actually fail loudly rather than
 silently passing through as null.
