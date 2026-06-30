@@ -71,7 +71,7 @@ flowchart TD
     MATCH --> MERGE["Merge / survivorship\nbuild CanonicalRecord + provenance + confidence"]
     MERGE --> PROJECT["Project\napply runtime config -> reshaped output"]
     PROJECT --> VALIDATE["Validate\ncheck output against requested shape"]
-    VALIDATE --> OUT["{ \"profiles\": [...] } JSON"]
+    VALIDATE --> OUT["JSON output: profiles array"]
 ```
 
 **Why GitHub is enrichment-only, not a core source:** it's an external API.
@@ -188,7 +188,7 @@ engine.
 ```mermaid
 flowchart LR
     CR["CanonicalRecord\n(internal, full, immutable)"] --> PROJ["Projector"]
-    CFG["ProjectionConfig (json)\nfields[], include_confidence,\ninclude_provenance, on_missing"] --> PROJ
+    CFG["ProjectionConfig (json)\nfields list, include_confidence,\ninclude_provenance, on_missing"] --> PROJ
     PROJ --> RESHAPED["Reshaped output dict"]
     RESHAPED --> VAL["Validator\nchecks against requested shape"]
     VAL -- "ok" --> PROFILE["profile in output"]
@@ -237,7 +237,7 @@ downstream system genuinely can't tolerate a missing field).
 Requires **Python 3.12+**.
 
 ```bash
-git clone <this-repo-url>
+git clone https://github.com/amrith-git-01/candidate-data-transformer.git
 cd candidate-data-transformer
 
 python -m venv .venv
