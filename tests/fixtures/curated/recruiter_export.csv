@@ -1,0 +1,7 @@
+name,email,phone,current_company,title,city,region,country,linkedin_url
+Linus Torvalds,linus.torvalds@example.com,+1-503-555-0101,Linux Foundation,Open Source Maintainer,Portland,OR,USA,
+Linus Torvalds,linus.torvalds@example.com,+1-503-555-0101,Linux Foundation,Open Source Maintainer,Portland,OR,USA,
+Dan Abramov,dan.abramov@example.com,+1-415-555-0102,Meta,Engineer,San Francisco,California,US,https://linkedin.com/in/gaearon
+Sindre Sorhus,sindre.sorhus@example.com,,Vercel,Open Source Maintainer,,,,
+Addy Osmani,addy.osmani@example.com,+1-650-555-0104,Google,Engineer,Mountain View,California,US,
+Ryan Carniato,ryan.carniato@example.com,+1-206-555-0105,SolidJS,Creator,Seattle,Washington,US,

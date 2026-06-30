@@ -1,0 +1,68 @@
+{
+  "candidates": [
+    {
+      "candidate_name": "Linus Torvalds",
+      "contact_email": "linus.torvalds@example.com",
+      "contact_phone": "+1-503-555-0101",
+      "employer": "Linux Foundation",
+      "job_title": "Open Source Maintainer",
+      "headline": "Creator of Linux and Git",
+      "github_url": "https://github.com/torvalds",
+      "location": {
+        "city": "Portland",
+        "region": "OR",
+        "country": "United States"
+      },
+      "education": [
+        {
+          "institution": "University of Helsinki",
+          "degree": "MSc",
+          "field": "Computer Science",
+          "end_year": 1996
+        }
+      ]
+    },
+    {
+      "candidate_name": "Dan Abramov",
+      "contact_email": "dan.abramov@example.com",
+      "contact_phone": "+1-415-555-0102",
+      "employer": "Bluesky",
+      "job_title": "Staff Software Engineer",
+      "github_url": "https://github.com/gaearon"
+    },
+    {
+      "candidate_name": "Sindre Sorhus",
+      "contact_email": null,
+      "contact_phone": "+1-212-555-0103",
+      "employer": "Vercel",
+      "job_title": "Open Source Maintainer",
+      "github_url": "https://github.com/sindresorhus"
+    },
+    {
+      "candidate_name": "Evan You",
+      "contact_email": "evan.you@example.com",
+      "contact_phone": "+1-650-555-0106",
+      "employer": "Vue",
+      "job_title": "Creator",
+      "github_url": "https://github.com/yyx990803"
+    },
+    {
+      "candidate_name": "Glitch Entry",
+      "contact_email": "not-an-email",
+      "job_title": null
+    },
+    {
+      "candidate_name": "Ryan Carniato",
+      "contact_email": "ryan.carniatto@example.com",
+      "contact_phone": "+1-206-555-0199",
+      "employer": "SolidJS",
+      "job_title": "Creator",
+      "github_url": "https://github.com/ryansolid",
+      "location": {
+        "city": "Toronto",
+        "region": "ON",
+        "country": "CA"
+      }
+    }
+  ]
+}

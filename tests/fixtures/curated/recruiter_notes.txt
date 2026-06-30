@@ -1,0 +1,19 @@
+=== Candidate: Dan Abramov ===
+Around 10 years experience with javascript, react, and redux. Based in San Francisco, California, US. Strong frontend background.
+
+=== Candidate: Evan You ===
+Creator of Vue.js with deep javascript and typescript experience. Based in Singapore.
+
+=== Candidate: Sarah Drasner ===
+Engineering leader and speaker. Based in Denver, Colorado, USA.
+
+See github.com/sdras for open source work.
+
+=== Candidate: Jane Doe ===
+Designer turned engineer. Open source at github.com/jane-doe-nonexistent-handle-12345.
+
+=== Candidate: Sindre Sorhus ===
+Prolific open source maintainer with hundreds of npm packages.
+
+=== Candidate: Addy Osmani ===
+Web performance advocate. Works on Chrome and developer tooling.
