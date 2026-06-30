@@ -1,0 +1,64 @@
+{
+  "fields": [
+    { "path": "id", "from": "candidate_id", "type": "string" },
+    { "path": "name", "from": "full_name", "type": "string", "required": true },
+    {
+      "path": "primary_email",
+      "from": "emails[0]",
+      "type": "string",
+      "required": true
+    },
+    {
+      "path": "phone",
+      "from": "phones[0]",
+      "type": "string",
+      "normalize": "E164"
+    },
+    { "path": "city", "from": "location.city", "type": "string" },
+    { "path": "region", "from": "location.region", "type": "string" },
+    { "path": "country", "from": "location.country", "type": "string" },
+    { "path": "headline", "from": "headline", "type": "string" },
+    {
+      "path": "years_experience",
+      "from": "years_experience",
+      "type": "number"
+    },
+    {
+      "path": "skill_names",
+      "from": "skills[].name",
+      "type": "string[]",
+      "normalize": "canonical"
+    },
+    { "path": "linkedin", "from": "links.linkedin", "type": "string" },
+    { "path": "github", "from": "links.github", "type": "string" },
+    {
+      "path": "companies",
+      "from": "experience[].company",
+      "type": "string[]"
+    },
+    {
+      "path": "job_titles",
+      "from": "experience[].title",
+      "type": "string[]"
+    },
+    {
+      "path": "schools",
+      "from": "education[].institution",
+      "type": "string[]"
+    },
+    {
+      "path": "degrees",
+      "from": "education[].degree",
+      "type": "string[]"
+    },
+    {
+      "path": "fields_of_study",
+      "from": "education[].field",
+      "type": "string[]"
+    },
+    { "path": "matched_by", "from": "matched_by", "type": "string" }
+  ],
+  "include_confidence": true,
+  "include_provenance": true,
+  "on_missing": "null"
+}
