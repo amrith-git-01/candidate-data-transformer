@@ -1,58 +1,67 @@
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
 
-const TYPE_OPTIONS = ["string", "string[]", "number", "object", "null"];
-
-// Mirrors src/project/projector.py::_apply_normalize — E164 only ever does
-// anything for a scalar string (phone-like value), and "canonical" (skill
-// name normalization) only ever does anything for a string or string[].
-// Anything else is a silent no-op on the backend, so we don't offer it here.
-function normalizeOptionsFor(type) {
-  if (type === "string")
-    return [
-      { value: "", label: "None" },
-      { value: "E164", label: "E164" },
-      { value: "canonical", label: "Canonical" },
-    ];
-  if (type === "string[]")
-    return [
-      { value: "", label: "None" },
-      { value: "canonical", label: "Canonical" },
-    ];
-  return [{ value: "", label: "None" }];
-}
-
-// The only valid values for "source" — real paths into CanonicalRecord (see
-// src/models.py). This isn't a free-rename field: it's what gets *read*,
-// so it has to be one of these, unlike "Output path" which can be anything.
+// Each source maps to a fixed output type (and optional normalize). These mirror
+// what the projector expects — not user-editable.
 const SOURCE_PATH_OPTIONS = [
-  { value: "candidate_id", label: "candidate_id" },
-  { value: "full_name", label: "full_name" },
-  { value: "emails[0]", label: "emails[0]" },
-  { value: "phones[0]", label: "phones[0]" },
-  { value: "location.city", label: "location.city" },
-  { value: "location.region", label: "location.region" },
-  { value: "location.country", label: "location.country" },
-  { value: "headline", label: "headline" },
-  { value: "years_experience", label: "years_experience" },
-  { value: "skills[].name", label: "skills[].name" },
-  { value: "links.linkedin", label: "links.linkedin" },
-  { value: "links.github", label: "links.github" },
-  { value: "links.portfolio", label: "links.portfolio" },
-  { value: "experience[].company", label: "experience[].company" },
-  { value: "experience[].title", label: "experience[].title" },
-  { value: "education[].institution", label: "education[].institution" },
-  { value: "education[].degree", label: "education[].degree" },
-  { value: "education[].field", label: "education[].field" },
-  { value: "education[].end_year", label: "education[].end_year" },
-  { value: "matched_by", label: "matched_by" },
-  { value: "overall_confidence", label: "overall_confidence" },
+  { value: "candidate_id", label: "candidate_id", type: "string" },
+  { value: "full_name", label: "full_name", type: "string" },
+  { value: "emails[0]", label: "emails[0]", type: "string" },
+  { value: "phones[0]", label: "phones[0]", type: "string", normalize: "E164" },
+  { value: "location.city", label: "location.city", type: "string" },
+  { value: "location.region", label: "location.region", type: "string" },
+  { value: "location.country", label: "location.country", type: "string" },
+  { value: "headline", label: "headline", type: "string" },
+  { value: "years_experience", label: "years_experience", type: "number" },
+  {
+    value: "skills[].name",
+    label: "skills[].name",
+    type: "string[]",
+    normalize: "canonical",
+  },
+  { value: "links.linkedin", label: "links.linkedin", type: "string" },
+  { value: "links.github", label: "links.github", type: "string" },
+  { value: "links.portfolio", label: "links.portfolio", type: "string" },
+  {
+    value: "experience[].company",
+    label: "experience[].company",
+    type: "string[]",
+  },
+  {
+    value: "experience[].title",
+    label: "experience[].title",
+    type: "string[]",
+  },
+  {
+    value: "education[].institution",
+    label: "education[].institution",
+    type: "string[]",
+  },
+  {
+    value: "education[].degree",
+    label: "education[].degree",
+    type: "string[]",
+  },
+  { value: "education[].field", label: "education[].field", type: "string[]" },
+  {
+    value: "education[].end_year",
+    label: "education[].end_year",
+    type: "number",
+  },
+  { value: "matched_by", label: "matched_by", type: "string" },
+  { value: "overall_confidence", label: "overall_confidence", type: "number" },
 ];
+
+const SOURCE_META = Object.fromEntries(
+  SOURCE_PATH_OPTIONS.map((o) => [o.value, o]),
+);
 
 const inputClass =
   "w-full rounded-lg border border-line-soft bg-canvas px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-200";
 
 const inputErrorClass =
   "w-full rounded-lg border border-rose-400 bg-rose-50 px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-rose-200";
+
+const metaClass = "px-1 text-sm text-ink-soft md:text-center";
 
 function emptyField() {
   return {
@@ -64,9 +73,17 @@ function emptyField() {
   };
 }
 
-// The projector reads each field independently, so mapping the same
-// canonical source into two output fields is technically harmless — but
-// it's almost always an accidental duplicate pick, so we flag it.
+function fieldMetaFromSource(from) {
+  const meta = SOURCE_META[from];
+  if (!meta) {
+    return { type: "string", normalize: null };
+  }
+  return {
+    type: meta.type,
+    normalize: meta.normalize ?? null,
+  };
+}
+
 function countBySource(fields) {
   const counts = new Map();
   for (const f of fields) {
@@ -80,6 +97,13 @@ export function hasDuplicateSources(fields) {
   return [...countBySource(fields).values()].some((count) => count > 1);
 }
 
+function ReadOnlyMeta({ value }) {
+  if (!value) {
+    return <span className={`${metaClass} text-ink-soft/40`}>—</span>;
+  }
+  return <span className={metaClass}>{value}</span>;
+}
+
 export default function FieldsBuilder({ fields, onChange }) {
   const sourceCounts = countBySource(fields);
 
@@ -88,14 +112,9 @@ export default function FieldsBuilder({ fields, onChange }) {
     onChange(next);
   }
 
-  function updateType(index, type) {
-    const validNormalize = normalizeOptionsFor(type).some(
-      (o) => o.value === (fields[index].normalize ?? ""),
-    );
-    updateField(index, {
-      type,
-      normalize: validNormalize ? fields[index].normalize : null,
-    });
+  function updateSource(index, from) {
+    const { type, normalize } = fieldMetaFromSource(from);
+    updateField(index, { from, type, normalize });
   }
 
   function removeField(index) {
@@ -111,15 +130,15 @@ export default function FieldsBuilder({ fields, onChange }) {
       <p className="mb-3 text-xs text-ink-soft">
         <strong className="text-ink">Output path</strong> is whatever name you
         want in the result — rename freely.{" "}
-        <strong className="text-ink">Source</strong> is <em>not</em> renameable:
-        it has to be one of the real canonical fields below, since that's what
-        actually gets read. A source that doesn't match anything real is never
-        an error by itself — it just resolves to an empty value, handled by the
-        "On missing field" setting above.
+        <strong className="text-ink">Source</strong> picks a canonical field;
+        <strong className="text-ink"> type</strong> and{" "}
+        <strong className="text-ink">normalize</strong> are set automatically
+        (E164 for phone, canonical for skills). A source with no value resolves
+        empty per the &ldquo;On missing field&rdquo; setting above.
       </p>
 
       {fields.length > 0 && (
-        <div className="mb-2 hidden grid-cols-[1fr_1fr_100px_110px_70px_36px] gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-soft md:grid">
+        <div className="mb-2 hidden grid-cols-[1fr_1fr_88px_88px_70px_36px] gap-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-soft md:grid">
           <span>Output path</span>
           <span>Source</span>
           <span>Type</span>
@@ -131,17 +150,17 @@ export default function FieldsBuilder({ fields, onChange }) {
 
       <div className="space-y-2">
         {fields.map((field, index) => {
-          const normalizeOptions = normalizeOptionsFor(field.type);
           const hasCustomSource =
             field.from &&
             !SOURCE_PATH_OPTIONS.some((o) => o.value === field.from);
           const isDuplicateSource =
             field.from && (sourceCounts.get(field.from) ?? 0) > 1;
+          const normalizeLabel = field.normalize ?? null;
 
           return (
             <div
               key={index}
-              className="grid grid-cols-1 gap-2 rounded-lg border border-line-soft bg-white p-2.5 md:grid-cols-[1fr_1fr_100px_110px_70px_36px] md:items-center"
+              className="grid grid-cols-1 gap-2 rounded-lg border border-line-soft bg-white p-2.5 md:grid-cols-[1fr_1fr_88px_88px_70px_36px] md:items-center"
             >
               <input
                 type="text"
@@ -153,7 +172,7 @@ export default function FieldsBuilder({ fields, onChange }) {
               <div>
                 <select
                   value={field.from ?? ""}
-                  onChange={(e) => updateField(index, { from: e.target.value })}
+                  onChange={(e) => updateSource(index, e.target.value)}
                   className={isDuplicateSource ? inputErrorClass : inputClass}
                   aria-invalid={isDuplicateSource}
                 >
@@ -178,30 +197,8 @@ export default function FieldsBuilder({ fields, onChange }) {
                   </p>
                 )}
               </div>
-              <select
-                value={field.type}
-                onChange={(e) => updateType(index, e.target.value)}
-                className={inputClass}
-              >
-                {TYPE_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={field.normalize ?? ""}
-                onChange={(e) =>
-                  updateField(index, { normalize: e.target.value || null })
-                }
-                className={inputClass}
-              >
-                {normalizeOptions.map((n) => (
-                  <option key={n.value} value={n.value}>
-                    {n.label}
-                  </option>
-                ))}
-              </select>
+              <ReadOnlyMeta value={field.from ? field.type : null} />
+              <ReadOnlyMeta value={normalizeLabel} />
               <label className="flex items-center justify-center gap-1.5 text-xs text-ink-soft md:justify-self-center">
                 <input
                   type="checkbox"

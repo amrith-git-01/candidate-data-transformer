@@ -1,28 +1,28 @@
 {
-  "seed": 323367,
-  "count": 500,
-  "generated_at": "1970-01-04T17:49:27+00:00",
+  "seed": 305753,
+  "count": 50,
+  "generated_at": "1970-01-04T12:55:53+00:00",
   "scenario_histogram": {
-    "happy_path": 189,
-    "title_conflict": 55,
-    "csv_only": 34,
-    "github_text_only": 20,
-    "csv_duplicate": 20,
-    "phone_join": 42,
-    "ats_notes_only": 22,
-    "notes_only": 23,
-    "email_typo": 37,
-    "glitch_email": 11,
-    "github_404": 16
+    "phone_join": 4,
+    "happy_path": 17,
+    "ats_notes_only": 5,
+    "csv_only": 5,
+    "email_typo": 5,
+    "github_404": 3,
+    "github_text_only": 1,
+    "csv_duplicate": 2,
+    "title_conflict": 2,
+    "notes_only": 2,
+    "glitch_email": 2
   },
   "source_counts": {
-    "csv_rows": 449,
-    "ats_candidates": 423,
-    "notes_sections": 353
+    "csv_rows": 41,
+    "ats_candidates": 44,
+    "notes_sections": 35
   },
   "github_stats": {
-    "empty": 477,
-    "real": 17,
-    "fake": 6
+    "empty": 48,
+    "real": 1,
+    "fake": 1
   }
 }
