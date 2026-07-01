@@ -34,6 +34,12 @@ happens on a missing value, **with no code changes**.
 - [Setup](#setup)
 - [Getting a GitHub token](#getting-a-github-token-optional)
 - [Commands](#commands)
+- [Web UI](#web-ui)
+  - [Tech stack](#tech-stack)
+  - [Pages (routes)](#pages-routes)
+  - [Interactive projection config](#interactive-projection-config)
+  - [API reference](#api-reference)
+  - [Running it](#running-it)
 - [Tests](#tests)
 - [Repo layout](#repo-layout)
 - [Known limitations](#known-limitations-deliberate-scope-cuts)
@@ -255,10 +261,14 @@ This installs the project itself plus `pytest` for the test suite (see
 
 ## Getting a GitHub token (optional)
 
-GitHub enrichment works **without** a token — it just falls back to
-GitHub's unauthenticated rate limit (60 requests/hour per IP), which is fine
-for a quick demo but will get rate-limited on a full 500-persona run. With a
-token, the limit jumps to 5,000 requests/hour.
+GitHub enrichment (`src/adapters/github_adapter.py`) calls two public,
+unauthenticated-capable endpoints — `GET /users/:handle` and
+`GET /users/:handle/repos` — to pull a candidate's name/bio/location and the
+languages of their most recently updated repos. A token is **not required**
+to use this feature at all; it only raises how many requests you're allowed
+per hour before GitHub starts rejecting them.
+
+### Steps
 
 1. Go to **github.com → Settings → Developer settings → Personal access
    tokens → Tokens (classic)** (or [this direct link](https://github.com/settings/tokens)).
@@ -267,8 +277,7 @@ token, the limit jumps to 5,000 requests/hour.
 
 3. Give it any name (e.g. `candidate-transformer-demo`) and pick an
    expiration. **Leave every scope checkbox unchecked** — this project only
-   reads public profile data (`GET /users/:handle` and
-   `GET /users/:handle/repos`), which needs no scopes at all.
+   reads public profile data, which needs no scopes at all.
 
 4. Click **Generate token** and copy it immediately — GitHub only shows it
    once.
@@ -285,10 +294,34 @@ token, the limit jumps to 5,000 requests/hour.
    GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
 
-`.env` is gitignored — it's never committed. If `GITHUB_TOKEN` isn't set,
-the pipeline still runs end-to-end; it just enriches fewer/no GitHub
-profiles before hitting the unauthenticated rate limit, and that's logged,
-not fatal.
+   `.env` is gitignored — it's never committed. Both the CLI (via
+   `src/env.py::load_project_env`) and the web UI backend load it
+   automatically on startup; no other config is needed.
+
+### What happens if you enable enrichment _without_ a token
+
+Nothing breaks — it degrades gracefully, by design:
+
+- **Rate limit is just lower.** Unauthenticated requests are capped at
+  **60/hour per IP** (vs. **5,000/hour** with a token). Fine for a handful
+  of candidates or a quick demo; you'll run out partway through a full
+  500-persona batch (each enriched candidate costs 2 requests).
+- **No crash, no partial corruption.** `fetch_github_record()` wraps both
+  GitHub calls in a `try/except httpx.HTTPError`. Once you're rate-limited,
+  GitHub returns `403`, `raise_for_status()` raises, the exception is caught,
+  a warning is logged, and the function returns `None`.
+- **Pipeline just treats it like a missing source.** Back in
+  `pipeline.py::_enrich_group_with_github`, a `None` result means that
+  candidate's group is returned unchanged — merge/projection carry on with
+  whatever CSV/ATS/notes data that candidate already had. You still get a
+  complete result set; the candidates that got rate-limited simply won't
+  have any GitHub-sourced fields (or provenance entries) merged in.
+- **In the web UI**, this is the "Enrich with GitHub" checkbox on the Run
+  Pipeline page — ticking it with no `GITHUB_TOKEN` set behaves exactly the
+  same way: it'll enrich as many candidates as the unauthenticated budget
+  allows, then silently stop enriching (not erroring) for the rest. Check
+  the backend terminal/log output for the `GitHub API error` warnings if you
+  want to see exactly where it started getting rate-limited.
 
 ---
 
@@ -358,6 +391,153 @@ paths invalid).
 
 ---
 
+## Web UI
+
+A FastAPI + React add-on wraps the same pipeline in a browser UI — useful
+for demoing without the CLI. It never re-implements pipeline logic: the
+backend is a thin layer that calls `src.pipeline.run_pipeline` and
+`sample_generator.orchestrator.generate` in-process, the same functions the
+CLI calls. There is **no database** — it reads/writes the same files the
+CLI uses (`sample_data/`, `configs/`), plus one extra artifact
+(`output/webapp_run.json`) for its own last run.
+
+```mermaid
+flowchart LR
+    subgraph Browser
+        UI["React 19 SPA\n(Vite + Tailwind v4)"]
+    end
+
+    subgraph Server["FastAPI backend (port 8000)"]
+        R1["/api/sample/*\nsample router"]
+        R2["/api/configs/*\nconfigs router"]
+        R3["/api/run\nrun router"]
+        SVC1["sample_service"]
+        SVC2["pipeline_service"]
+    end
+
+    UI -- "fetch /api/* (Vite dev proxy)" --> R1 & R2 & R3
+    R1 --> SVC1
+    R3 --> SVC2
+    SVC1 -->|"writes"| SD["sample_data/*.csv .json .txt"]
+    SVC1 -->|"reads back for preview"| SD
+    R2 -->|"reads"| CFG["configs/*.json"]
+    SVC2 -->|"calls in-process"| PIPE["src.pipeline.run_pipeline"]
+    SVC2 -->|"writes"| RUN["output/webapp_run.json"]
+    PIPE -->|"reads"| SD
+```
+
+### Tech stack
+
+| Layer    | Choices                                                                                                                                                                                                                                                    |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend  | FastAPI, layered as `routers/` (HTTP) → `services/` (logic) → `schemas/` (Pydantic request/response models); CORS opened for the Vite dev origin only                                                                                                      |
+| Frontend | React 19 + Vite, **React Router** for real per-page URLs, **React Query** (`@tanstack/react-query`) for all server state (caching, loading/error states, mutations), Tailwind CSS v4 for styling, `lucide-react` for icons, `clsx` for conditional classes |
+
+### Pages (routes)
+
+The SPA uses `react-router-dom`'s `BrowserRouter` — each tab is a real
+route with its own URL, so the browser back/forward buttons work and a
+page refresh lands you back where you were (`/` redirects to `/sample`):
+
+```mermaid
+flowchart LR
+    ROOT["/"] -->|redirect| SAMPLE["/sample\nSample Data"]
+    SAMPLE -.->|nav| RUN["/run\nRun Pipeline"]
+    RUN -.->|nav| RESULTS["/results\nResults"]
+    RESULTS -.->|nav| SAMPLE
+    ANY["any unknown path"] -->|redirect| SAMPLE
+```
+
+- **`/sample` — Sample Data.** Generate a fresh synthetic dataset (persona
+  count + seed) via `sample_generator`, see the manifest stats (rows
+  written per source, real vs. fake GitHub handles), and page through the
+  raw rows of each of the three generated source files.
+
+- **`/run` — Run Pipeline.** Build a `ProjectionConfig` with **interactive
+  controls — no JSON editing** — then run the pipeline in-process and see
+  how many canonical profiles came out. See
+  [Interactive projection config](#interactive-projection-config) below.
+
+- **`/results` — Results.** Paginated table of every canonical profile
+  from the most recent run (`output/webapp_run.json`), with columns for
+  contact info, location, skills, experience, education, links, match
+  tier, and confidence — adapting automatically to either the full
+  canonical schema or a flattened custom projection.
+
+### Interactive projection config
+
+The same `ProjectionConfig` the CLI takes via `--config` is built entirely
+through UI controls on `/run`, mapped 1:1 onto the Pydantic model in
+`src/models.py`:
+
+| Control                                                                                                                  | `ProjectionConfig` field                   |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Segmented control — _Canonical schema_ / _Custom fields_                                                                 | `use_canonical_schema`                     |
+| Field-row builder (add/remove; output path, source path, type, normalize, required) — only shown in _Custom fields_ mode | `fields[]` (each row is a `FieldSpec`)     |
+| Toggle switches — _include confidence_, _include provenance_                                                             | `include_confidence`, `include_provenance` |
+| Segmented control — _Null / Omit / Error_                                                                                | `on_missing`                               |
+
+A **preset selector** (`ConfigSelector`) seeds the form from any file in
+`configs/` (`default.json`, `custom.json`) as a starting point, which
+you're then free to tweak interactively. A collapsible, read-only JSON
+preview at the bottom shows the exact payload that will be POSTed —
+useful for sanity-checking without ever hand-editing JSON.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Form state (React)
+    participant B as FieldsBuilder / Toggle / SegmentedControl
+    participant API as POST /api/run
+
+    U->>F: pick preset (ConfigSelector)
+    F->>API: GET /api/configs/{name}
+    API-->>F: raw config JSON
+    F->>F: merge onto ProjectionConfig field defaults
+    U->>B: toggle schema mode / add-edit-remove field rows / flip switches
+    B->>F: patch config state
+    U->>API: click "Run pipeline"
+    F->>API: POST { config, enrich_github }
+    API-->>F: { profile_count, wrote_to }
+```
+
+### API reference
+
+| Method | Path                   | Purpose                                                                                                                     |
+| ------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/api/sample/generate` | Generate a fresh sample dataset (`{ count, seed }`), returns the manifest                                                   |
+| `GET`  | `/api/sample/{source}` | Paginated raw rows for `source` = `csv` \| `ats` \| `notes`                                                                 |
+| `GET`  | `/api/configs`         | List available config presets (filenames under `configs/`, no extension)                                                    |
+| `GET`  | `/api/configs/{name}`  | Raw JSON contents of one config preset                                                                                      |
+| `POST` | `/api/run`             | Run the pipeline (`{ config, enrich_github }`), persists to `output/webapp_run.json`, returns `{ profile_count, wrote_to }` |
+| `GET`  | `/api/run/results`     | Paginated canonical profiles from the latest run                                                                            |
+| `GET`  | `/api/health`          | Liveness check                                                                                                              |
+
+### Running it
+
+Backend (from repo root, same venv as the CLI):
+
+```bash
+pip install -r webapp/backend/requirements.txt
+python -m uvicorn app.main:app --app-dir webapp/backend --port 8000
+```
+
+Frontend (separate terminal):
+
+```bash
+cd webapp/frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. Vite's dev server proxies `/api/*` to the
+backend on port 8000 (see `webapp/frontend/vite.config.js`) and serves
+`index.html` for every client-side route, so no CORS setup is needed
+beyond what's already configured and deep-linking/refreshing `/run` or
+`/results` works out of the box.
+
+---
+
 ## Tests
 
 ```bash
@@ -399,6 +579,22 @@ sample_data/       generated sample inputs (csv, ats json, notes txt)
 output/            committed pipeline run artifacts
 tests/             unit + integration tests, curated fixtures
 docs/              architecture, scenario map, design specs
+webapp/
+  backend/
+    app/
+      routers/     HTTP layer: sample.py, configs.py, run.py
+      services/    logic: sample_service.py, pipeline_service.py
+      schemas/     Pydantic request/response models
+      core/        config.py (paths to sample_data/, configs/, output/)
+      main.py      FastAPI app, CORS, router registration
+  frontend/
+    src/
+      api/         client.js (fetch wrapper), queries.js (React Query hooks)
+      components/  generic UI: Card, Table, Tabs, NavTabs, Toggle,
+                   SegmentedControl, ConfigSelector, Pagination, Badge, ...
+      features/    per-page logic: sampleData/, runPipeline/, results/
+      App.jsx      route definitions (react-router-dom)
+      main.jsx     QueryClientProvider + BrowserRouter root
 ```
 
 ---

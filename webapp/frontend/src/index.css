@@ -1,0 +1,58 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #fbf8ff;
+  --color-ink: #1b1b24;
+  --color-ink-soft: #464555;
+  --color-line: #e3e1ed;
+  --color-line-soft: #efecf9;
+
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #e2dfff;
+  --color-brand-200: #c3c0ff;
+  --color-brand-300: #a29dff;
+  --color-brand-400: #8078f5;
+  --color-brand-500: #6760fd;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #3525cd;
+  --color-brand-800: #2b1ea3;
+  --color-brand-900: #1f1678;
+}
+
+html {
+  /* Reserve the scrollbar's width at all times so switching between tabs of
+     different heights never shifts the whole layout sideways. */
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+body {
+  @apply bg-canvas text-ink antialiased;
+}
+
+* {
+  font-feature-settings: "tnum" 1;
+}
+
+/* Thin, brand-tinted scrollbar for inner scroll containers (e.g. long-text
+   table cells) — keeps them from looking like a raw browser default. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-brand-200) transparent;
+}
+
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-brand-200);
+  border-radius: 999px;
+}

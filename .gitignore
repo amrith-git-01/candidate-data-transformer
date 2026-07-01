@@ -6,3 +6,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# webapp
+webapp/frontend/node_modules/
+webapp/frontend/dist/
+output/webapp_run.json
